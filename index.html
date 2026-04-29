@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Port Traffic Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0e1a;
+            color: #a8b2c1;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 细微网格背景 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,255,255,0.01) 40px, rgba(255,255,255,0.01) 41px),
+                repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.01) 40px, rgba(255,255,255,0.01) 41px);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* 顶部标题栏 */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding: 24px 32px;
+            background: rgba(16, 20, 30, 0.6);
+            border-left: 3px solid #4a5568;
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #e2e8f0;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            background: #48bb78;
+            border-radius: 50%;
+            opacity: 0.8;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 24px;
+            font-size: 0.875em;
+            color: #718096;
+        }
+
+        .header-stats span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .header-stats .value {
+            color: #cbd5e0;
+            font-weight: 500;
+        }
+
+        /* 视图切换按钮 */
+        .view-toggle {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #a8b2c1;
+            font-family: inherit;
+            font-size: 0.875em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 4px;
+        }
+
+        .view-toggle:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .view-toggle.active {
+            background: rgba(74, 85, 104, 0.4);
+            color: #e2e8f0;
+            border-color: #4a5568;
+        }
+
+        /* 主布局：不对称两栏 */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 30px;
+            align-items: start;
+        }
+
+        /* 左侧：图表区域 */
+        .chart-section {
+            background: rgba(16, 20, 30, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(8px);
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .chart-header {
+            padding: 20px 28px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chart-title {
+            font-size: 1.1em;
+            color: #cbd5e0;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        select, button {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #a8b2c1;
+            font-family: inherit;
+            font-size: 0.875em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        select:hover, button:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        button.active {
+            background: rgba(74, 85, 104, 0.4);
+            color: #e2e8f0;
+            border-color: #4a5568;
+        }
+
+        #chart {
+            width: 100%;
+            height: 600px;
+            padding: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: rgba(255, 255, 255, 0.06);
+            margin: 0;
+        }
+
+        .stat-item {
+            background: rgba(16, 20, 30, 0.8);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.75em;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.4em;
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+
+        /* 右侧：端口列表 */
+        .ports-section {
+            background: rgba(16, 20, 30, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(8px);
+            max-height: calc(100vh - 200px);
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 20px;
+        }
+
+        .ports-header {
+            padding: 20px 28px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(8px);
+        }
+
+        .ports-title {
+            font-size: 1em;
+            color: #cbd5e0;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .ports-title .left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ports-count {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.875em;
+            color: #a8b2c1;
+        }
+
+        .port-list {
+            padding: 15px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .port-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 16px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 紧凑模式：端口数量多时自动缩小 */
+        .port-list.compact .port-item {
+            padding: 12px;
+            margin-bottom: 6px;
+        }
+
+        .port-list.compact .port-number {
+            font-size: 1.3em;
+            margin-bottom: 8px;
+        }
+
+        .port-list.compact .port-stats {
+            font-size: 0.75em;
+            gap: 8px;
+        }
+
+        .port-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: #4a5568;
+            transform: scaleY(0);
+            transition: transform 0.2s ease;
+        }
+
+        .port-item:hover::before {
+            transform: scaleY(1);
+        }
+
+        .port-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .port-item.selected {
+            background: rgba(74, 85, 104, 0.2);
+            border-color: #4a5568;
+        }
+
+        .port-item.selected::before {
+            background: #4a5568;
+            transform: scaleY(1);
+        }
+
+        .port-number {
+            font-size: 1.5em;
+            color: #cbd5e0;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .port-item.selected .port-number {
+            color: #e2e8f0;
+        }
+
+        .port-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.8em;
+            color: #718096;
+        }
+
+        .port-stats div {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .port-stats .label {
+            color: #718096;
+        }
+
+        .port-stats .value {
+            color: #cbd5e0;
+            font-weight: 500;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #718096;
+            font-size: 0.9em;
+        }
+
+        .error {
+            background: rgba(220, 38, 38, 0.1);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            color: #f87171;
+            padding: 20px;
+            margin: 20px;
+        }
+
+        /* 滚动条样式 */
+        .ports-section::-webkit-scrollbar,
+        .port-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .ports-section::-webkit-scrollbar-track,
+        .port-list::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .ports-section::-webkit-scrollbar-thumb,
+        .port-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .ports-section::-webkit-scrollbar-thumb:hover,
+        .port-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 响应式 */
+        @media (max-width: 1200px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .ports-section {
+                max-height: 500px;
+                position: relative;
+                top: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span class="status-indicator"></span>
+                <span id="headerTitle">Port Traffic Monitor</span>
+            </h1>
+            <div class="header-stats">
+                <div style="display: flex; gap: 12px; margin-right: 20px;">
+                    <button id="viewTogglePort" class="view-toggle active" onclick="switchView('port')">
+                        <iconify-icon icon="mdi:lan"></iconify-icon> Ports
+                    </button>
+                    <button id="viewToggleHost" class="view-toggle" onclick="switchView('host')">
+                        <iconify-icon icon="mdi:server"></iconify-icon> Hosts
+                    </button>
+                </div>
+                <span>
+                    <iconify-icon icon="mdi:server-network"></iconify-icon>
+                    <span class="value" id="totalPorts">0</span> <span id="itemType">ports</span>
+                </span>
+                <span>
+                    <iconify-icon icon="mdi:clock-outline"></iconify-icon>
+                    <span class="value" id="updateTime">--:--</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <!-- 左侧：图表区域 -->
+            <div class="chart-section">
+                <div class="chart-header">
+                    <div class="chart-title">
+                        <iconify-icon icon="mdi:chart-line"></iconify-icon>
+                        Traffic Analysis
+                    </div>
+                    <div class="controls">
+                        <select id="portSelect">
+                            <option value="">Select Port</option>
+                        </select>
+                        <select id="rangeSelect">
+                            <option value="15m">15m</option>
+                            <option value="30m">30m</option>
+                            <option value="60m">1h</option>
+                            <option value="1d" selected>1d</option>
+                            <option value="3d">3d</option>
+                            <option value="7d">7d</option>
+                            <option value="30d">30d</option>
+                        </select>
+                        <button id="queryBtn" onclick="queryPortStats()">Query</button>
+                        <button id="autoRefreshBtn" onclick="toggleAutoRefresh()">
+                            <iconify-icon icon="mdi:refresh"></iconify-icon>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="statsSummary"></div>
+                <div id="chart"></div>
+            </div>
+
+            <!-- 右侧：端口列表 -->
+            <div class="ports-section">
+                <div class="ports-header">
+                    <div class="ports-title">
+                        <div class="left">
+                            <iconify-icon icon="mdi:access-point-network"></iconify-icon>
+                            Active Ports
+                        </div>
+                        <div class="ports-count" id="portsCount">0</div>
+                    </div>
+                </div>
+                <div id="activePorts" class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let selectedPort = null;
+        let autoRefreshInterval = null;
+        let currentView = 'port'; // 'port' or 'host'
+
+        function initChart() {
+            const chartDom = document.getElementById('chart');
+            chart = echarts.init(chartDom, 'dark');
+        }
+
+        function switchView(view) {
+            currentView = view;
+
+            // 更新按钮状态
+            document.getElementById('viewTogglePort').classList.toggle('active', view === 'port');
+            document.getElementById('viewToggleHost').classList.toggle('active', view === 'host');
+
+            // 更新标题
+            document.getElementById('headerTitle').textContent =
+                view === 'port' ? 'Port Traffic Monitor' : 'Host Traffic Monitor';
+            document.getElementById('itemType').textContent =
+                view === 'port' ? 'ports' : 'hosts';
+
+            // 更新右侧标题
+            const portsTitle = document.querySelector('.ports-title .left');
+            portsTitle.innerHTML = view === 'port'
+                ? '<iconify-icon icon="mdi:access-point-network"></iconify-icon> Active Ports'
+                : '<iconify-icon icon="mdi:server"></iconify-icon> Active Hosts';
+
+            // 清空选择和图表
+            document.getElementById('portSelect').innerHTML =
+                `<option value="">Select ${view === 'port' ? 'Port' : 'Host'}</option>`;
+            document.getElementById('statsSummary').innerHTML = '';
+            if (chart) {
+                chart.clear();
+            }
+
+            // 加载对应数据
+            if (view === 'port') {
+                loadActivePorts();
+            } else {
+                loadActiveHosts();
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+        }
+
+        function formatRate(bytesPerSec) {
+            return formatBytes(bytesPerSec) + '/s';
+        }
+
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('updateTime').textContent = timeStr;
+        }
+
+        async function loadActivePorts() {
+            try {
+                const response = await fetch('/api/ports/active');
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                const container = document.getElementById('activePorts');
+                const portSelect = document.getElementById('portSelect');
+
+                document.getElementById('totalPorts').textContent = result.data.length;
+                updateTime();
+
+                if (result.data.length === 0) {
+                    container.innerHTML = '<div class="loading">No active ports</div>';
+                    return;
+                }
+
+                container.innerHTML = '<div class="port-list"></div>';
+                const portList = container.querySelector('.port-list');
+
+                // 更新端口数量显示
+                document.getElementById('portsCount').textContent = result.data.length;
+
+                // 根据端口数量自动切换紧凑模式
+                if (result.data.length > 8) {
+                    portList.classList.add('compact');
+                }
+
+                const currentValue = portSelect.value;
+                portSelect.innerHTML = '<option value="">Select Port</option>';
+
+                result.data.forEach(portData => {
+                    const portItem = document.createElement('div');
+                    portItem.className = 'port-item';
+                    if (selectedPort === portData.port) {
+                        portItem.classList.add('selected');
+                    }
+
+                    portItem.innerHTML = `
+                        <div class="port-number">
+                            <iconify-icon icon="mdi:ethernet"></iconify-icon>
+                            ${portData.port}
+                        </div>
+                        <div class="port-stats">
+                            <div>
+                                <span class="label">Traffic:</span>
+                                <span class="value">${formatBytes(portData.total_bytes)}</span>
+                            </div>
+                            <div>
+                                <span class="label">Packets:</span>
+                                <span class="value">${portData.total_packets}</span>
+                            </div>
+                            <div>
+                                <span class="label">Peak:</span>
+                                <span class="value">${formatRate(portData.peak_rate)}</span>
+                            </div>
+                            <div>
+                                <span class="label">Sources:</span>
+                                <span class="value">${portData.sources.length}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    portItem.onclick = () => {
+                        selectedPort = portData.port;
+                        portSelect.value = portData.port;
+                        loadActivePorts();
+                        queryPortStats();
+                    };
+
+                    portList.appendChild(portItem);
+
+                    const option = document.createElement('option');
+                    option.value = portData.port;
+                    option.textContent = `Port ${portData.port}`;
+                    if (currentValue == portData.port) {
+                        option.selected = true;
+                    }
+                    portSelect.appendChild(option);
+                });
+
+            } catch (error) {
+                document.getElementById('activePorts').innerHTML =
+                    `<div class="error">Load failed: ${error.message}</div>`;
+            }
+        }
+
+        async function loadActiveHosts() {
+            try {
+                const response = await fetch('/api/hosts/active');
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                const container = document.getElementById('activePorts');
+                const portSelect = document.getElementById('portSelect');
+
+                document.getElementById('totalPorts').textContent = result.data.length;
+                updateTime();
+
+                if (result.data.length === 0) {
+                    container.innerHTML = '<div class="loading">No active hosts</div>';
+                    return;
+                }
+
+                container.innerHTML = '<div class="port-list"></div>';
+                const portList = container.querySelector('.port-list');
+
+                document.getElementById('portsCount').textContent = result.data.length;
+
+                if (result.data.length > 8) {
+                    portList.classList.add('compact');
+                }
+
+                const currentValue = portSelect.value;
+                portSelect.innerHTML = '<option value="">Select Host</option>';
+
+                result.data.forEach(hostData => {
+                    const portItem = document.createElement('div');
+                    portItem.className = 'port-item';
+                    if (selectedPort === hostData.host_ip) {
+                        portItem.classList.add('selected');
+                    }
+
+                    portItem.innerHTML = `
+                        <div class="port-number">
+                            <iconify-icon icon="mdi:server"></iconify-icon>
+                            ${hostData.host_ip}
+                        </div>
+                        <div class="port-stats">
+                            <div>
+                                <span class="label">Traffic:</span>
+                                <span class="value">${formatBytes(hostData.total_bytes)}</span>
+                            </div>
+                            <div>
+                                <span class="label">Packets:</span>
+                                <span class="value">${hostData.total_packets}</span>
+                            </div>
+                            <div>
+                                <span class="label">Peak:</span>
+                                <span class="value">${formatRate(hostData.peak_rate)}</span>
+                            </div>
+                            <div>
+                                <span class="label">Remotes:</span>
+                                <span class="value">${hostData.remotes.length}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    portItem.onclick = () => {
+                        selectedPort = hostData.host_ip;
+                        portSelect.value = hostData.host_ip;
+                        loadActiveHosts();
+                        queryHostStats();
+                    };
+
+                    portList.appendChild(portItem);
+
+                    const option = document.createElement('option');
+                    option.value = hostData.host_ip;
+                    option.textContent = `Host ${hostData.host_ip}`;
+                    if (currentValue == hostData.host_ip) {
+                        option.selected = true;
+                    }
+                    portSelect.appendChild(option);
+                });
+
+            } catch (error) {
+                document.getElementById('activePorts').innerHTML =
+                    `<div class="error">Load failed: ${error.message}</div>`;
+            }
+        }
+
+        async function queryPortStats() {
+            const port = document.getElementById('portSelect').value;
+            const range = document.getElementById('rangeSelect').value;
+
+            if (!port) {
+                return;
+            }
+
+            if (currentView === 'host') {
+                queryHostStats();
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/ports/stats?port=${port}&range=${range}`);
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                displayStats(result.data);
+            } catch (error) {
+                console.error('Query failed:', error);
+            }
+        }
+
+        async function queryHostStats() {
+            const hostIP = document.getElementById('portSelect').value;
+            const range = document.getElementById('rangeSelect').value;
+
+            if (!hostIP) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/hosts/stats?host_ip=${encodeURIComponent(hostIP)}&range=${range}`);
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                displayHostStats(result.data);
+            } catch (error) {
+                console.error('Query failed:', error);
+            }
+        }
+
+        function displayStats(data) {
+            const summaryHtml = `
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Total Traffic</div>
+                        <div class="stat-value">${formatBytes(data.total_bytes)}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Total Packets</div>
+                        <div class="stat-value">${data.total_packets}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Peak Rate</div>
+                        <div class="stat-value">${formatRate(data.peak_rate)}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Avg Rate</div>
+                        <div class="stat-value">${formatRate(data.average_rate)}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('statsSummary').innerHTML = summaryHtml;
+
+            const timestamps = [];
+            const inboundBytes = [];
+            const outboundBytes = [];
+            const inboundRates = [];
+            const outboundRates = [];
+
+            const timeMap = {};
+            data.timeseries.forEach(record => {
+                if (!timeMap[record.timestamp]) {
+                    timeMap[record.timestamp] = {
+                        time: record.time,
+                        inbound: 0,
+                        outbound: 0,
+                        inboundRate: 0,
+                        outboundRate: 0
+                    };
+                }
+
+                if (record.direction === 'inbound') {
+                    timeMap[record.timestamp].inbound += record.bytes;
+                    timeMap[record.timestamp].inboundRate = Math.max(
+                        timeMap[record.timestamp].inboundRate,
+                        record.peak_rate
+                    );
+                } else {
+                    timeMap[record.timestamp].outbound += record.bytes;
+                    timeMap[record.timestamp].outboundRate = Math.max(
+                        timeMap[record.timestamp].outboundRate,
+                        record.peak_rate
+                    );
+                }
+            });
+
+            Object.keys(timeMap).sort().forEach(ts => {
+                const item = timeMap[ts];
+                timestamps.push(item.time);
+                inboundBytes.push(item.inbound);
+                outboundBytes.push(item.outbound);
+                inboundRates.push(item.inboundRate);
+                outboundRates.push(item.outboundRate);
+            });
+
+            const option = {
+                backgroundColor: 'transparent',
+                title: {
+                    text: `Port ${data.port} / ${data.range}`,
+                    left: 20,
+                    top: 10,
+                    textStyle: {
+                        color: '#cbd5e0',
+                        fontSize: 14,
+                        fontWeight: 500
+                    }
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(16, 20, 30, 0.95)',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    textStyle: {
+                        color: '#cbd5e0'
+                    },
+                    axisPointer: {
+                        type: 'cross',
+                        lineStyle: {
+                            color: 'rgba(255, 255, 255, 0.2)',
+                            opacity: 0.5
+                        }
+                    },
+                    formatter: function(params) {
+                        let result = params[0].axisValue + '<br/>';
+                        params.forEach(param => {
+                            const value = param.seriesName.includes('Rate')
+                                ? formatRate(param.value)
+                                : formatBytes(param.value);
+                            result += `${param.marker} ${param.seriesName}: ${value}<br/>`;
+                        });
+                        return result;
+                    }
+                },
+                legend: {
+                    data: ['Inbound', 'Outbound', 'In Rate', 'Out Rate'],
+                    top: 10,
+                    right: 20,
+                    textStyle: {
+                        color: '#718096'
+                    }
+                },
+                grid: {
+                    left: 60,
+                    right: 60,
+                    top: 60,
+                    bottom: 40
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: timestamps,
+                    axisLine: {
+                        lineStyle: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    axisLabel: {
+                        color: '#718096'
+                    }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'Traffic',
+                        position: 'left',
+                        axisLine: {
+                            lineStyle: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        axisLabel: {
+                            color: '#718096',
+                            formatter: value => formatBytes(value)
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                opacity: 0.5
+                            }
+                        }
+                    },
+                    {
+                        type: 'value',
+                        name: 'Rate',
+                        position: 'right',
+                        axisLine: {
+                            lineStyle: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        axisLabel: {
+                            color: '#718096',
+                            formatter: value => formatRate(value)
+                        },
+                        splitLine: {
+                            show: false
+                        }
+                    }
+                ],
+                series: [
+                    {
+                        name: 'Inbound',
+                        type: 'line',
+                        data: inboundBytes,
+                        smooth: true,
+                        showSymbol: false,
+                        lineStyle: {
+                            color: '#60a5fa',
+                            width: 2
+                        },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: 'rgba(96, 165, 250, 0.15)' },
+                                    { offset: 1, color: 'rgba(96, 165, 250, 0.01)' }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        name: 'Outbound',
+                        type: 'line',
+                        data: outboundBytes,
+                        smooth: true,
+                        showSymbol: false,
+                        lineStyle: {
+                            color: '#a78bfa',
+                            width: 2
+                        },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: 'rgba(167, 139, 250, 0.15)' },
+                                    { offset: 1, color: 'rgba(167, 139, 250, 0.01)' }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        name: 'In Rate',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: inboundRates,
+                        smooth: true,
+                        showSymbol: false,
+                        lineStyle: {
+                            color: '#60a5fa',
+                            width: 1,
+                            type: 'dashed',
+                            opacity: 0.6
+                        }
+                    },
+                    {
+                        name: 'Out Rate',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: outboundRates,
+                        smooth: true,
+                        showSymbol: false,
+                        lineStyle: {
+                            color: '#a78bfa',
+                            width: 1,
+                            type: 'dashed',
+                            opacity: 0.6
+                        }
+                    }
+                ]
+            };
+
+            chart.setOption(option);
+        }
+
+        function displayHostStats(data) {
+            const summaryHtml = `
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Total Traffic</div>
+                        <div class="stat-value">${formatBytes(data.total_bytes)}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Total Packets</div>
+                        <div class="stat-value">${data.total_packets}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Peak Rate</div>
+                        <div class="stat-value">${formatRate(data.peak_rate)}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Avg Rate</div>
+                        <div class="stat-value">${formatRate(data.average_rate)}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('statsSummary').innerHTML = summaryHtml;
+
+            const timestamps = [];
+            const inboundBytes = [];
+            const outboundBytes = [];
+            const inboundRates = [];
+            const outboundRates = [];
+
+            const timeMap = {};
+            data.timeseries.forEach(record => {
+                if (!timeMap[record.timestamp]) {
+                    timeMap[record.timestamp] = {
+                        time: record.time,
+                        inbound: 0,
+                        outbound: 0,
+                        inboundRate: 0,
+                        outboundRate: 0
+                    };
+                }
+
+                if (record.direction === 'inbound') {
+                    timeMap[record.timestamp].inbound += record.bytes;
+                    timeMap[record.timestamp].inboundRate = Math.max(
+                        timeMap[record.timestamp].inboundRate,
+                        record.peak_rate
+                    );
+                } else {
+                    timeMap[record.timestamp].outbound += record.bytes;
+                    timeMap[record.timestamp].outboundRate = Math.max(
+                        timeMap[record.timestamp].outboundRate,
+                        record.peak_rate
+                    );
+                }
+            });
+
+            Object.keys(timeMap).sort().forEach(ts => {
+                const item = timeMap[ts];
+                timestamps.push(item.time);
+                inboundBytes.push(item.inbound);
+                outboundBytes.push(item.outbound);
+                inboundRates.push(item.inboundRate);
+                outboundRates.push(item.outboundRate);
+            });
+
+            const option = {
+                backgroundColor: 'transparent',
+                title: {
+                    text: `Host ${data.host_ip} / ${data.range}`,
+                    left: 20,
+                    top: 10,
+                    textStyle: {
+                        color: '#cbd5e0',
+                        fontSize: 14,
+                        fontWeight: 500
+                    }
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(16, 20, 30, 0.95)',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    textStyle: {
+                        color: '#cbd5e0'
+                    },
+                    axisPointer: {
+                        type: 'cross',
+                        lineStyle: {
+                            color: 'rgba(255, 255, 255, 0.2)',
+                            opacity: 0.5
+                        }
+                    },
+                    formatter: function(params) {
+                        let result = params[0].axisValue + '<br/>';
+                        params.forEach(param => {
+                            const value = param.seriesName.includes('Rate')
+                                ? formatRate(param.value)
+                                : formatBytes(param.value);
+                            result += `${param.marker} ${param.seriesName}: ${value}<br/>`;
+                        });
+                        return result;
+                    }
+                },
+                legend: {
+                    data: ['Inbound', 'Outbound', 'In Rate', 'Out Rate'],
+                    top: 10,
+                    right: 20,
+                    textStyle: {
+                        color: '#718096'
+                    }
+                },
+                grid: {
+                    left: 60,
+                    right: 60,
+                    top: 60,
+                    bottom: 40
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: timestamps,
+                    axisLine: {
+                        lineStyle: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    axisLabel: {
+                        color: '#718096'
+                    }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'Traffic',
+                        position: 'left',
+                        axisLine: {
+                            lineStyle: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        axisLabel: {
+                            color: '#718096',
+                            formatter: value => formatBytes(value)
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                opacity: 0.5
+                            }
+                        }
+                    },
+                    {
+                        type: 'value',
+                        name: 'Rate',
+                        position: 'right',
+                        axisLine: {
+                            lineStyle: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        axisLabel: {
+                            color: '#718096',
+                            formatter: value => formatRate(value)
+                        },
+                        splitLine: {
+                            show: false
+                        }
+                    }
+                ],
+                series: [
+                    {
+                        name: 'Inbound',
+                        type: 'line',
+                        data: inboundBytes,
+                        smooth: true,
+                        showSymbol: false,
+                        lineStyle: {
+                            color: '#60a5fa',
+                            width: 2
+                        },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: 'rgba(96, 165, 250, 0.15)' },
+                                    { offset: 1, color: 'rgba(96, 165, 250, 0.01)' }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        name: 'Outbound',
+                        type: 'line',
+                        data: outboundBytes,
+                        smooth: true,
+                        showSymbol: false,
+                        lineStyle: {
+                            color: '#a78bfa',
+                            width: 2
+                        },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: 'rgba(167, 139, 250, 0.15)' },
+                                    { offset: 1, color: 'rgba(167, 139, 250, 0.01)' }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        name: 'In Rate',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: inboundRates,
+                        smooth: true,
+                        showSymbol: false,
+                        lineStyle: {
+                            color: '#60a5fa',
+                            width: 1,
+                            type: 'dashed',
+                            opacity: 0.6
+                        }
+                    },
+                    {
+                        name: 'Out Rate',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: outboundRates,
+                        smooth: true,
+                        showSymbol: false,
+                        lineStyle: {
+                            color: '#a78bfa',
+                            width: 1,
+                            type: 'dashed',
+                            opacity: 0.6
+                        }
+                    }
+                ]
+            };
+
+            chart.setOption(option);
+        }
+
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoRefreshBtn');
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                btn.classList.remove('active');
+            } else {
+                autoRefreshInterval = setInterval(() => {
+                    if (currentView === 'port') {
+                        loadActivePorts();
+                    } else {
+                        loadActiveHosts();
+                    }
+                    const item = document.getElementById('portSelect').value;
+                    if (item) {
+                        if (currentView === 'port') {
+                            queryPortStats();
+                        } else {
+                            queryHostStats();
+                        }
+                    }
+                }, 5000);
+                btn.classList.add('active');
+            }
+        }
+
+        window.onload = function() {
+            initChart();
+            loadActivePorts();
+            setInterval(() => {
+                if (currentView === 'port') {
+                    loadActivePorts();
+                } else {
+                    loadActiveHosts();
+                }
+            }, 10000);
+        };
+
+        window.onresize = function() {
+            if (chart) {
+                chart.resize();
+            }
+        };
+    </script>
+</body>
+</html>

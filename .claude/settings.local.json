@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x *)",
+      "Bash(awk '{print $9, \"\\(\"$5\"\\)\"}')",
+      "Bash(awk '{printf \"  %-25s %8s\\\\n\", $9, $5}')",
+      "Bash(ldconfig -p)",
+      "Bash(go mod *)",
+      "Bash(go build *)",
+      "Bash(curl -s http://localhost:8080)",
+      "Bash(curl -s http://localhost:8080/api/ports/active)",
+      "Bash(pkill -f traffic-monitor)",
+      "Bash(./traffic-monitor)",
+      "Bash(echo \"程序已重启，PID: $!\")",
+      "Bash(echo \"重新编译并启动，PID: $!\")",
+      "Bash(make build *)",
+      "Bash(sqlite3 *)"
+    ]
+  }
+}
