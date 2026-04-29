@@ -166,6 +166,23 @@ download_binary() {
         mv "$BINARY_NAME" "$INSTALL_DIR/"
         chmod +x "$INSTALL_DIR/$BINARY_NAME"
         print_msg "Binary installed to $INSTALL_DIR/$BINARY_NAME"
+
+        # Test if binary can run (check glibc compatibility)
+        print_msg "Testing binary compatibility..."
+        if ! "$INSTALL_DIR/$BINARY_NAME" --help &>/dev/null && ! "$INSTALL_DIR/$BINARY_NAME" -h &>/dev/null; then
+            # Try to run and capture error
+            ERROR_MSG=$("$INSTALL_DIR/$BINARY_NAME" 2>&1 | head -1)
+            if echo "$ERROR_MSG" | grep -q "GLIBC"; then
+                print_warning "Binary is incompatible with your system's glibc version"
+                print_msg "Your system glibc: $(ldd --version | head -1)"
+                print_msg "Will build from source instead..."
+                rm -f "$INSTALL_DIR/$BINARY_NAME"
+                cd - > /dev/null
+                rm -rf "$TMP_DIR"
+                return 1
+            fi
+        fi
+        print_msg "Binary compatibility test passed"
     else
         print_error "Binary not found in archive"
         cd - > /dev/null
