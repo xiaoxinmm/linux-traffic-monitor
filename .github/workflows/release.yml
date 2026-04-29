@@ -38,102 +38,9 @@ jobs:
           name: traffic-monitor-linux-amd64
           path: traffic-monitor-${{ github.ref_name }}-linux-amd64.tar.gz
 
-  build-arm64:
-    name: Build for Linux ARM64
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      - name: Install cross-compilation tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
-      - name: Download and build libpcap for ARM64
-        run: |
-          wget https://www.tcpdump.org/release/libpcap-1.10.4.tar.gz
-          tar -xzf libpcap-1.10.4.tar.gz
-          cd libpcap-1.10.4
-          export CC=aarch64-linux-gnu-gcc
-          ./configure --host=aarch64-linux-gnu --prefix=$HOME/libpcap-arm64
-          make
-          make install
-          cd ..
-
-      - name: Build binary
-        env:
-          CGO_ENABLED: 1
-          GOOS: linux
-          GOARCH: arm64
-          CC: aarch64-linux-gnu-gcc
-          CGO_CFLAGS: -I$HOME/libpcap-arm64/include
-          CGO_LDFLAGS: -L$HOME/libpcap-arm64/lib
-        run: |
-          go build -o traffic-monitor main.go
-          tar -czf traffic-monitor-${{ github.ref_name }}-linux-arm64.tar.gz traffic-monitor
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: traffic-monitor-linux-arm64
-          path: traffic-monitor-${{ github.ref_name }}-linux-arm64.tar.gz
-
-  build-arm:
-    name: Build for Linux ARM
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      - name: Install cross-compilation tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf
-
-      - name: Download and build libpcap for ARM
-        run: |
-          wget https://www.tcpdump.org/release/libpcap-1.10.4.tar.gz
-          tar -xzf libpcap-1.10.4.tar.gz
-          cd libpcap-1.10.4
-          export CC=arm-linux-gnueabihf-gcc
-          ./configure --host=arm-linux-gnueabihf --prefix=$HOME/libpcap-arm
-          make
-          make install
-          cd ..
-
-      - name: Build binary
-        env:
-          CGO_ENABLED: 1
-          GOOS: linux
-          GOARCH: arm
-          GOARM: 7
-          CC: arm-linux-gnueabihf-gcc
-          CGO_CFLAGS: -I$HOME/libpcap-arm/include
-          CGO_LDFLAGS: -L$HOME/libpcap-arm/lib
-        run: |
-          go build -o traffic-monitor main.go
-          tar -czf traffic-monitor-${{ github.ref_name }}-linux-arm.tar.gz traffic-monitor
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: traffic-monitor-linux-arm
-          path: traffic-monitor-${{ github.ref_name }}-linux-arm.tar.gz
-
   release:
     name: Create Release
-    needs: [build-amd64, build-arm64, build-arm]
+    needs: [build-amd64]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -154,5 +61,27 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          body: |
+            ## Installation
+
+            ### Quick Install (AMD64 only)
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/xiaoxinmm/linux-traffic-monitor/main/install.sh | sudo bash
+            ```
+
+            ### Manual Download
+            Download the precompiled binary for Linux AMD64 below.
+
+            ### ARM/ARM64 Users
+            For ARM architectures, please build from source:
+            ```bash
+            git clone https://github.com/xiaoxinmm/linux-traffic-monitor.git
+            cd linux-traffic-monitor
+            go build -o traffic-monitor main.go
+            sudo ./traffic-monitor
+            ```
+
+            ## What's Changed
+            See the full changelog below.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

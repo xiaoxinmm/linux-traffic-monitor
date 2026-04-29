@@ -119,6 +119,13 @@ get_latest_version() {
 download_binary() {
     print_step "Downloading precompiled binary..."
 
+    # Only amd64 has precompiled binaries
+    if [ "$ARCH" != "amd64" ]; then
+        print_warning "Precompiled binaries are only available for amd64 architecture"
+        print_msg "Your architecture ($ARCH) requires building from source"
+        return 1
+    fi
+
     if ! get_latest_version; then
         return 1
     fi
