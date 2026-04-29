@@ -33,7 +33,7 @@ Real-time network traffic monitoring system for Linux with dual monitoring modes
 
 ## Quick Start
 
-### One-Line Installation
+### One-Line Installation (Recommended)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xiaoxinmm/linux-traffic-monitor/main/install.sh | sudo bash
@@ -48,21 +48,77 @@ sudo ./install.sh
 ```
 
 The installation script will:
-1. Detect your Linux distribution
-2. Install required dependencies (Go, libpcap-dev)
-3. Download and compile the traffic monitor
-4. Start the service on port 8080
+1. Detect your Linux distribution and architecture (amd64/arm64/arm)
+2. Install required dependencies (libpcap)
+3. **Download precompiled binary from GitHub Releases** (fast!)
+4. Fallback to building from source if precompiled binary is unavailable
+5. Create and configure systemd service
+6. Optionally start the service immediately
+
+**Supported Platforms:**
+- Linux x86_64 (amd64)
+- Linux ARM64 (aarch64)
+- Linux ARM (armv7l)
+
+**Supported Distributions:**
+- Ubuntu / Debian
+- CentOS / RHEL / Fedora
+- Arch Linux / Manjaro
 
 ### Manual Installation
 
-#### Requirements
+#### Option 1: Download Precompiled Binary
+
+Download the latest release for your platform:
+
+```bash
+# For x86_64 (amd64)
+wget https://github.com/xiaoxinmm/linux-traffic-monitor/releases/latest/download/traffic-monitor-linux-amd64.tar.gz
+tar -xzf traffic-monitor-linux-amd64.tar.gz
+sudo mv traffic-monitor /usr/local/bin/
+sudo chmod +x /usr/local/bin/traffic-monitor
+
+# For ARM64
+wget https://github.com/xiaoxinmm/linux-traffic-monitor/releases/latest/download/traffic-monitor-linux-arm64.tar.gz
+tar -xzf traffic-monitor-linux-arm64.tar.gz
+sudo mv traffic-monitor /usr/local/bin/
+sudo chmod +x /usr/local/bin/traffic-monitor
+
+# For ARM (32-bit)
+wget https://github.com/xiaoxinmm/linux-traffic-monitor/releases/latest/download/traffic-monitor-linux-arm.tar.gz
+tar -xzf traffic-monitor-linux-arm.tar.gz
+sudo mv traffic-monitor /usr/local/bin/
+sudo chmod +x /usr/local/bin/traffic-monitor
+```
+
+Install libpcap dependency:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install -y libpcap0.8
+```
+
+**CentOS/RHEL:**
+```bash
+sudo yum install -y libpcap
+```
+
+Then run:
+```bash
+sudo traffic-monitor
+```
+
+#### Option 2: Build from Source
+
+##### Requirements
 
 - Linux system (tested on Ubuntu, Debian, CentOS, RHEL)
 - Go 1.21 or higher
 - libpcap-dev
 - Root privileges (for packet capture)
 
-#### Install Dependencies
+##### Install Dependencies
 
 **Ubuntu/Debian:**
 ```bash
@@ -75,7 +131,7 @@ sudo apt-get install -y libpcap-dev golang-go
 sudo yum install -y libpcap-devel golang
 ```
 
-#### Build and Run
+##### Build and Run
 
 ```bash
 # Clone the repository
@@ -83,7 +139,7 @@ git clone https://github.com/xiaoxinmm/linux-traffic-monitor.git
 cd linux-traffic-monitor
 
 # Build
-./build.sh
+go build -o traffic-monitor main.go
 
 # Run (requires root for packet capture)
 sudo ./traffic-monitor
@@ -93,7 +149,31 @@ The web interface will be available at `http://localhost:8080`
 
 ## Usage
 
-### Starting the Monitor
+### Using Systemd Service (Recommended)
+
+If you used the installation script, the monitor is installed as a systemd service:
+
+```bash
+# Start the monitor
+sudo systemctl start traffic-monitor
+
+# Enable auto-start on boot
+sudo systemctl enable traffic-monitor
+
+# Check status
+sudo systemctl status traffic-monitor
+
+# View logs
+sudo journalctl -u traffic-monitor -f
+
+# Stop the monitor
+sudo systemctl stop traffic-monitor
+
+# Restart the monitor
+sudo systemctl restart traffic-monitor
+```
+
+### Running Manually
 
 ```bash
 sudo ./traffic-monitor

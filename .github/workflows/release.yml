@@ -1,0 +1,93 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build for multiple platforms
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpcap-dev
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          # Install cross-compilation tools if needed
+          if [ "${{ matrix.goarch }}" = "arm64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+            export CC=aarch64-linux-gnu-gcc
+          elif [ "${{ matrix.goarch }}" = "arm" ]; then
+            sudo apt-get install -y gcc-arm-linux-gnueabihf
+            export CC=arm-linux-gnueabihf-gcc
+          fi
+
+          # Build
+          go build -o traffic-monitor-${{ matrix.goos }}-${{ matrix.goarch }} main.go
+
+          # Create tarball
+          tar -czf traffic-monitor-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz traffic-monitor-${{ matrix.goos }}-${{ matrix.goarch }}
+          mv traffic-monitor-${{ matrix.goos }}-${{ matrix.goarch }} traffic-monitor
+          tar -czf traffic-monitor-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz traffic-monitor
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-monitor-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: traffic-monitor-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*.tar.gz
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
