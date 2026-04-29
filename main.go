@@ -1039,13 +1039,13 @@ func (d *Database) QueryHostStats(hostIP string, rangeStr string) ([]map[string]
 		}
 
 		results = append(results, map[string]interface{}{
-			"timestamp":  timestamp,
-			"time":       time.Unix(timestamp, 0).Format("2006-01-02 15:04:05"),
-			"remote_ip":  remoteIP,
-			"direction":  direction,
-			"bytes":      bytes,
-			"packets":    packets,
-			"peak_rate":  maxRate,
+			"timestamp": timestamp,
+			"time":      time.Unix(timestamp, 0).Format("2006-01-02 15:04:05"),
+			"remote_ip": remoteIP,
+			"direction": direction,
+			"bytes":     bytes,
+			"packets":   packets,
+			"peak_rate": maxRate,
 		})
 	}
 

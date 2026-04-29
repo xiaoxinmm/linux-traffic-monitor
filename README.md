@@ -1,5 +1,7 @@
 # Linux Traffic Monitor
 
+English | [简体中文](README_CN.md)
+
 Real-time network traffic monitoring system for Linux with dual monitoring modes: port-level and host-level traffic analysis.
 
 ## Features
@@ -35,7 +37,14 @@ Real-time network traffic monitoring system for Linux with dual monitoring modes
 
 ### One-Line Installation (Recommended)
 
+**For AMD64 (x86_64) systems:**
 ```bash
+curl -fsSL https://raw.githubusercontent.com/xiaoxinmm/linux-traffic-monitor/main/install.sh | sudo bash
+```
+
+**For ARM64/ARM systems:**
+```bash
+# The script will automatically build from source
 curl -fsSL https://raw.githubusercontent.com/xiaoxinmm/linux-traffic-monitor/main/install.sh | sudo bash
 ```
 
@@ -47,47 +56,57 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
+### What the Installation Script Does
+
 The installation script will:
-1. Detect your Linux distribution and architecture (amd64/arm64/arm)
-2. Install required dependencies (libpcap)
-3. **Download precompiled binary from GitHub Releases** (fast!)
-4. Fallback to building from source if precompiled binary is unavailable
-5. Create and configure systemd service
-6. Optionally start the service immediately
+1. **Detect your system**
+   - Automatically identify Linux distribution (Ubuntu/Debian/CentOS/RHEL/Fedora/Arch)
+   - Detect system architecture (x86_64/ARM64/ARM)
 
-**Supported Platforms:**
-- Linux x86_64 (amd64)
-- Linux ARM64 (aarch64)
-- Linux ARM (armv7l)
+2. **Install dependencies**
+   - Install libpcap runtime library
+   - Install curl, wget, tar utilities
 
-**Supported Distributions:**
+3. **Get the program**
+   - **AMD64**: Download precompiled binary from GitHub Releases (fast!)
+   - **ARM/ARM64**: Automatically build from source (requires Go and build tools)
+
+4. **Configure service**
+   - Create systemd service
+   - Configure auto-start option
+
+5. **Start service**
+   - Optionally start the monitoring service immediately
+
+### Supported Platforms
+
+**Architectures:**
+- ✅ x86_64 (amd64) - **Precompiled binary available**
+- ✅ ARM64 (aarch64) - Built from source
+- ✅ ARM (armv7l) - Built from source
+
+**Distributions:**
 - Ubuntu / Debian
 - CentOS / RHEL / Fedora
 - Arch Linux / Manjaro
 
 ### Manual Installation
 
-#### Option 1: Download Precompiled Binary
+#### Option 1: Download Precompiled Binary (AMD64 Only)
 
-Download the latest release for your platform:
+Download the latest release for x86_64 systems:
 
 ```bash
-# For x86_64 (amd64)
-wget https://github.com/xiaoxinmm/linux-traffic-monitor/releases/latest/download/traffic-monitor-linux-amd64.tar.gz
-tar -xzf traffic-monitor-linux-amd64.tar.gz
-sudo mv traffic-monitor /usr/local/bin/
-sudo chmod +x /usr/local/bin/traffic-monitor
+# Download latest AMD64 binary
+wget https://github.com/xiaoxinmm/linux-traffic-monitor/releases/latest/download/traffic-monitor-v1.1.0-linux-amd64.tar.gz
 
-# For ARM64
-wget https://github.com/xiaoxinmm/linux-traffic-monitor/releases/latest/download/traffic-monitor-linux-arm64.tar.gz
-tar -xzf traffic-monitor-linux-arm64.tar.gz
-sudo mv traffic-monitor /usr/local/bin/
-sudo chmod +x /usr/local/bin/traffic-monitor
+# Extract
+tar -xzf traffic-monitor-v1.1.0-linux-amd64.tar.gz
 
-# For ARM (32-bit)
-wget https://github.com/xiaoxinmm/linux-traffic-monitor/releases/latest/download/traffic-monitor-linux-arm.tar.gz
-tar -xzf traffic-monitor-linux-arm.tar.gz
+# Move to system path
 sudo mv traffic-monitor /usr/local/bin/
+
+# Add execute permission
 sudo chmod +x /usr/local/bin/traffic-monitor
 ```
 
@@ -104,31 +123,41 @@ sudo apt-get install -y libpcap0.8
 sudo yum install -y libpcap
 ```
 
+**Arch Linux:**
+```bash
+sudo pacman -S libpcap
+```
+
 Then run:
 ```bash
 sudo traffic-monitor
 ```
 
-#### Option 2: Build from Source
+#### Option 2: Build from Source (All Architectures)
 
 ##### Requirements
 
-- Linux system (tested on Ubuntu, Debian, CentOS, RHEL)
+- Linux system
 - Go 1.21 or higher
 - libpcap-dev
 - Root privileges (for packet capture)
 
-##### Install Dependencies
+##### Install Build Dependencies
 
 **Ubuntu/Debian:**
 ```bash
 sudo apt-get update
-sudo apt-get install -y libpcap-dev golang-go
+sudo apt-get install -y libpcap-dev golang-go git
 ```
 
 **CentOS/RHEL:**
 ```bash
-sudo yum install -y libpcap-devel golang
+sudo yum install -y libpcap-devel golang git
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S libpcap go git
 ```
 
 ##### Build and Run
